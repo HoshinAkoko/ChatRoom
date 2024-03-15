@@ -1,6 +1,8 @@
 import txt_reader
 import socket
 import threading
+from src.util import util
+import dict_format
 
 
 # 解析输入切片到list中
@@ -20,9 +22,13 @@ def analyser(ipt_str):
 def execute(cmd_list):
     match cmd_list[0]:
         case "msg":
-            print(cmd_list[1])
-            # 待实现：msg_send(cmd_list[1])
-        case "exit":
+            print(f"[{nickname}]{cmd_list[1]}")
+            text_msg(cmd_list[1])
+        case "quit" | "q":
+            global conn_flag
+            if conn_flag:
+                disconnect()
+            input("按任意键退出")
             exit()
         case "connect" | "conn" | "c":
             connect(cmd_list)
@@ -51,11 +57,29 @@ def connect(cmd_list):
     global socket_client
     socket_client = socket.socket()
     socket_client.connect((ip, int(port)))
+    global conn_flag
+    conn_flag = True
 
-
-# 用于向服务器发送输入的消息
+# 用于向服务器发送测试消息
 def connection_test(cmd_list):
+    if not conn_flag:
+        print("未连接到服务器，无法发送")
+        return
     send_msg = cmd_list[1].encode("utf-8")
+    socket_client.send(send_msg)
+
+
+# 发送文本信息
+def text_msg(text):
+    send_encrypted(dict_format.text_chat(text,util.get_timestamp()))
+
+
+# 发送加密信息，待补全
+def send_encrypted(dicted):
+    if not conn_flag:
+        print("未连接到服务器，无法发送")
+        return
+    send_msg = str(dicted).encode("utf-8")
     socket_client.send(send_msg)
 
 
@@ -66,6 +90,11 @@ def disconnect():
 
 
 # 启动命令
+nickname = txt_reader.read_config("nickname")
+conn_flag = False
 while True:
-    listed_input = analyser(input())
-    execute(listed_input)
+    try:
+        listed_input = analyser(input())
+        execute(listed_input)
+    except Exception as e:
+        print(f"错误：{e}")

@@ -1,0 +1,5 @@
+直接输入：目前功能为print 待补全
+/connect /conn /c 连接到服务器
+/quit /q 退出
+/connection_test /ct 直接向服务器发送一段文本
+/disconnect /d 断开连接
