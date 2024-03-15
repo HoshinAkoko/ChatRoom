@@ -4,17 +4,18 @@
 
 import socket
 import threading
-import util
+from src.util import util
 
 default_key = "0123456789ABCDEF"
+sign_key = "OPSTART"
 
 
 # 主业务
-def main_service(params_json):
-    params_dict = util.verify_dict(params_json)
+def main_service(params_json, addr):
+    params_dict = util.verify_to_dict(params_json)
     if not params_dict:
+        print(f"用户{addr}验签失败！")
         return error_msg("验签失败！")
-
 
 
 # 返回单条错误信息
@@ -37,16 +38,16 @@ def handle_client(stop_event, client_socket, addr):
     while True:
         # 接受数据，若空则关闭
         try:
-            msg = client_socket.recv(1024)
-            if not msg:
+            receive = client_socket.recv(1024)
+            if not receive:
                 break
-            msg = msg.decode('utf-8')
-            msg = util.aes_decrypt(msg, key_dict.get(addr) if key_dict.get(addr) is not None else default_key)
-            print(f"接受用户{addr}的信息：{msg}")
+            receive = receive.decode('utf-8')
+            receive = util.aes_decrypt(receive, key_dict.get(addr) if key_dict.get(addr) is not None else default_key)
+            print(f"接受用户{addr}的信息：{receive}")
             # 业务处理
-            respond_dict = main_service(msg)
+            respond_dict = main_service(receive, addr)
             respond_dict["timestamp"] = util.get_timestamp
-            respond = util.sign_to_json(respond_dict)
+            respond = util.sign_to_json(respond_dict, sign_key)
             respond = util.aes_encrypt(respond, key_dict.get(addr) if key_dict.get(addr) is not None else default_key)
             respond.encode('utf-8')
             client_socket.send(respond)
