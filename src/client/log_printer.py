@@ -10,7 +10,6 @@ def ins_log(filename):
         f.close()
         return msg_list
 
-
 # 可调用-打印包含所有记录的列表
 def all_msg(filename, show_type_dict):
     msg_list = ins_log(filename)
