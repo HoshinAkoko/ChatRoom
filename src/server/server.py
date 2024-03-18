@@ -1,20 +1,19 @@
 """
 服务端
 """
-
 import socket
 import threading
-from src.util import util
+from src.util import util, loguru_config as log_conf
+from loguru import logger as log
 
 default_key = "0123456789ABCDEF"
 sign_key = "OPSTART"
 
-
 # 主业务
 def main_service(params_json, addr):
-    params_dict = util.verify_to_dict(params_json)
+    params_dict = util.verify_to_dict(params_json, sign_key)
     if not params_dict:
-        print(f"用户{addr}验签失败！")
+        log.warning(f"用户{addr}验签失败！")
         return error_msg("验签失败！")
 
 
@@ -32,8 +31,8 @@ def error_msg(msg):
 
 # 处理每个客户端连接
 def handle_client(stop_event, client_socket, addr):
-    print(f"新连接: {addr}")
-    print(f"当前连接数：{len(client_list)}")
+    log.info(f"新连接: {addr}")
+    log.info(f"当前连接数：{len(client_list)}")
     client_socket.settimeout(3.0)
     while True:
         # 接受数据，若空则关闭
@@ -43,7 +42,7 @@ def handle_client(stop_event, client_socket, addr):
                 break
             receive = receive.decode('utf-8')
             receive = util.aes_decrypt(receive, key_dict.get(addr) if key_dict.get(addr) is not None else default_key)
-            print(f"接受用户{addr}的信息：{receive}")
+            log.info(f"接受用户{addr}的信息：{receive}")
             # 业务处理
             respond_dict = main_service(receive, addr)
             respond_dict["timestamp"] = util.get_timestamp
@@ -54,17 +53,22 @@ def handle_client(stop_event, client_socket, addr):
         except socket.timeout:
             pass
         except ConnectionResetError:
+            log.warning(f"用户中断连接！连接{addr}强制关闭...")
             break
-        except Exception:
-            break
+        except Exception as e:
+            log.error(f"未知异常！连接{addr}强制关闭...")
+            client_list.remove(client_socket)
+            log.info(f"当前连接数：{len(client_list)}")
+            client_socket.close()
+            raise e
         finally:
             if stop_event.is_set():
                 break
     # 关闭连接
     client_socket.close()
-    print(f"连接已关闭: {addr}")
-    print(f"当前连接数：{len(client_list)}")
+    log.info(f"连接已关闭: {addr}")
     client_list.remove(client_socket)
+    log.info(f"当前连接数：{len(client_list)}")
 
 
 # 启动服务器
@@ -74,7 +78,7 @@ def start_server(stop_event, host, port, max_listen):
     server_socket.settimeout(3.0)
     server_socket.bind((host, port))
     server_socket.listen(max_listen)
-    print(f"ChatRoom服务端启动于{host}:{port}...")
+    log.info(f"ChatRoom服务端启动于{host}:{port}...")
     while True:
         try:
             # 等待一个新连接
@@ -85,28 +89,35 @@ def start_server(stop_event, host, port, max_listen):
             client_thread.start()
         except socket.timeout:
             pass
+        except Exception as e:
+            log.critical(f"未知异常！服务端强制关闭...")
+            stop_event.set()
+            server_socket.close()
+            log.warning(f"Socket服务端已关闭")
+            raise e
         finally:
             if stop_event.is_set():
                 break
     server_socket.close()
-    print(f"Socket服务端已关闭")
+    log.warning(f"Socket服务端已关闭")
 
 
 if __name__ == "__main__":
+    log_conf.setup_logger("server")
+    print("\r====================== CHAT ROOM ======================")
     HOST = "0.0.0.0"
     PORT = 8919
-    # start_server(HOST, PORT, 5)
-    # 改为新开线程处理服务器
-    _event = threading.Event()
-    server_thread = threading.Thread(target=start_server, args=(_event, HOST, PORT, 5))
+    # 停止时间
+    exit_event = threading.Event()
+    server_thread = threading.Thread(target=start_server, args=(exit_event, HOST, PORT, 5))
     client_list = []
     key_dict = {}
     server_thread.start()
     while True:
         new_command = input()
         if "exit".upper() == new_command.upper():
-            _event.set()  # 通知线程停止
-            print(f"等待线程退出...")
+            exit_event.set()  # 通知线程停止
+            log.info(f"等待线程退出...")
             break
         else:
             pass
