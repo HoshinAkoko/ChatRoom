@@ -52,7 +52,7 @@ def print_list(msg_list, show_type_dict):
 
 
 if __name__ == "__main__":
-    the_show_type_dict = {"time": True, "nickname": True, "uid": True, "msg": True}
+    my_show_type_dict = {"time": True, "nickname": True, "uid": True, "msg": True}
     # all_msg("simulated_logs.txt",show_type_dict)
-    search_compare("simulated_logs.txt", "time", "12344", show_type_dict)
+    search_compare("simulated_logs.txt", "time", "12344", my_show_type_dict)
     input()
