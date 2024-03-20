@@ -132,7 +132,7 @@ def main():
     # 服务器启动
     config_init()
     log_conf.setup_logger("server")
-    print("\r====================== CHAT ROOM ======================")
+    print(f"\r{constant.get_logo(constant.SERVER_TITLE, constant.SERVER_SUBTITLE, constant.SERVER_VERSION)}", end="")
     server_thread = threading.Thread(target=start_server, args=())
     server_thread.start()
     # 等待接收指令
@@ -187,6 +187,7 @@ def config_init():
     sign_key        = get_config('server', 'sign_key', default_value=sign_key)
 
 
+# 测试
 if __name__ == "__main__":
     main()
     # log_conf.setup_logger("server")
