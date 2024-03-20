@@ -3,21 +3,6 @@ import socket
 import threading
 from src.util import util
 import dict_format
-
-
-# 解析输入切片到list中
-def analyser(ipt_str):
-    if ipt_str == "":
-        return ["msg", ""]
-    if ipt_str[0] == "/":
-        ipt_str = ipt_str.strip()
-        ipt_str = ipt_str[1:]
-        ipt_listed = ipt_str.split(" ")
-    else:
-        ipt_listed = ["msg", ipt_str]
-    return ipt_listed
-
-
 # 解析命令内容并分流到对应函数
 def execute(cmd_list):
     match cmd_list[0]:
@@ -38,27 +23,6 @@ def execute(cmd_list):
             disconnect()
 
 
-# 连接到服务器
-def connect(cmd_list):
-    if len(cmd_list) == 1:
-        default_addr = txt_reader.read_config("default_addr")
-        ip = default_addr.split(":")[0]
-        port = default_addr.split(":")[1]
-    elif len(cmd_list) == 2:
-        ip = cmd_list[1].split(":")[0]
-        port = cmd_list[1].split(":")[1]
-    elif len(cmd_list) == 3:
-        ip = cmd_list[1]
-        port = cmd_list[2]
-    else:
-        print("参数错误")
-        return
-    print(f"连接到{ip}:{port}")
-    global socket_client
-    socket_client = socket.socket()
-    socket_client.connect((ip, int(port)))
-    global conn_flag
-    conn_flag = True
 
 # 用于向服务器发送测试消息
 def connection_test(cmd_list):

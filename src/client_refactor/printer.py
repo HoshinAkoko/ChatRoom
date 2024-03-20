@@ -1,5 +1,26 @@
+"""
+prt_message：Msg
+prt_error：Error
+prt_warning：Warning
+prt_info：Info
+prt_security：Security
+prt_request:Request
+prt_default:Default
+prt_clr()
+"""
+def prt_color(msg,color=37,label="Default"):
+    """
+黑色：0 红色：31 绿色：32 黄色：33 蓝色：34 品红：35 青色：36 白色：37
+    """
+    prt_msg = f"\033[{str(color)}m[{label}]\033[0m{msg}"
+    print(prt_msg)
+
 def prt_message(msg):
     prt_msg = "\033[32m[Msg]\033[0m" + msg
+    print(prt_msg)
+
+def prt_default(msg):
+    prt_msg = "\037[32m[Default]\033[0m" + msg
     print(prt_msg)
 
 def prt_error(msg):
@@ -23,9 +44,4 @@ def prt_request(msg):
     print(prt_msg)
 
 if __name__ == "__main__":
-    prt_message("[14:15:12][可莉](10001):你好")
-    prt_error("尚未连接到服务器")
-    prt_warning("上一条信息发送时间过长")
-    prt_info("连接到服务器127.0.0.1")
-    prt_security("更改密码成功")
-    prt_request("请输入密码：")
+    prt_color("你好",33,"33")

@@ -2,7 +2,7 @@ import command
 import printer
 import config_op
 import socket
-# main函数，持续监听控制台 input ，解析并传递给 command
+# 持续监听控制台 input ，解析并传递给 command
 def main(uni_var):
     uni_var["conn_flag"] = False
     while True:
@@ -10,15 +10,12 @@ def main(uni_var):
             listed_input = analyser(input())
             if listed_input[0] == "connect" or listed_input[0] == "conn" or listed_input[0] == "c":
                 connect(listed_input,uni_var)
-            elif listed_input[0] == "disconnect" or listed_input[0] == "disconn" or listed_input[0] == "dc":
-                pass
-            elif uni_var["conn_flag"]:
-                command.commands(listed_input, uni_var)
             else:
-                printer.prt_error("请先连接到服务器再使用其他命令。")
+                command.execute(listed_input, uni_var)
         except Exception as e:
             printer.prt_error(f"{e}")
 
+# 连接到socket
 def connect(listed_input,uni_var):
     if len(listed_input) == 1:
         default_addr = uni_var["config"]["default_addr"]
@@ -33,13 +30,14 @@ def connect(listed_input,uni_var):
     else:
         print("参数错误")
         return
-    uni_var["socket_client"] = socket.socket()
-    uni_var["socket_client"].connect((ip, int(port)))
-    (printer.prt_info(f"已连接到{ip}:{port}"))
+    printer.prt_info(f"尝试连接：{ip}:{port}")
+    uni_var["send_socket"] = socket.socket()
+    uni_var["send_socket"].connect((ip, int(port)))
+    printer.prt_info(f"已连接到{ip}:{port}")
     uni_var["conn_flag"] = True
 
 
-# analyser函数，解析输入的命令
+# 解析输入的命令
 def analyser(input_str):
     if input_str == "":
         return ["msg", ""]

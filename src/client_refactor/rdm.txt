@@ -1,5 +1,5 @@
 /msg 或直接输入 发送文本消息到服务器
-/connect /conn /c 连接到服务器
+ /connect /conn /c 连接到服务器
 /quit /q 退出
 /connection_test /ct 测试功能 直接向服务器发送一段文本
 /disconnect /d 断开连接
