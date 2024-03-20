@@ -1,4 +1,4 @@
-import txt_reader
+import config_op
 import socket
 import threading
 from src.util import util
