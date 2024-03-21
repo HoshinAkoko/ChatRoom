@@ -20,7 +20,7 @@ exit_event = threading.Event()          # 退出事件
 host = "0.0.0.0"                        # 服务端ip
 port = 9999                             # 服务端端口
 max_client = 3                          # 每轮监听等待时间
-common_key = "0123456789ABCDEF"         # 默认消息密钥
+common_key = "0123456789ABCDEF0123456789ABCDEF"         # 默认消息密钥
 sign_key = "OPSTART"                    # 验签密钥
 
 
@@ -30,6 +30,8 @@ def main_service(request_json, addr, user):
     if not request_dict:
         log.warning(f"客户端 {addr} 验签失败！")
         return error_msg("验签失败！")
+    if "params" not in request_dict or "type" not in request_dict:
+        return error_msg("参数错误！")
     if request_dict["type"] != constant.CLIENT_MSG_TYPE_LOGIN_IN and user is None:
         log.warning(f"客户端 {addr} 非法请求，需要先登录。")
         return error_msg("非法请求！请先登录。")
@@ -51,9 +53,6 @@ def main_service(request_json, addr, user):
             return error_msg("未知请求！")
 
 
-
-
-
 # 处理每个客户端连接
 def handle_client(client_socket, addr):
     log.info(f"新连接: {addr}")
@@ -66,14 +65,23 @@ def handle_client(client_socket, addr):
             if not receive:
                 break
             receive = receive.decode('utf-8')
-            receive = util.aes_decrypt(receive, user_dict[addr].key if user_dict[addr].key is not None else common_key)
-            log.info(f"接受客户端 {addr} 的信息：{receive}")
+            user = None
+            aes_key = common_key
+            if addr in user_dict:
+                user = user_dict[addr]
+                if user.key is not None:
+                    aes_key = user_dict[addr].key
+            receive = util.aes_decrypt(receive, aes_key)
+            log.debug(f"接收客户端: {addr} ：{receive}")
             # 业务处理
-            respond_dict = main_service(receive, addr, user_dict[addr])
+            respond_dict = main_service(receive, addr, user)
+            if respond_dict is None:
+                respond_dict = error_msg(f"未知错误！")
             respond_dict["timestamp"] = util.get_timestamp()
             respond = util.sign_to_json(respond_dict, sign_key)
-            respond = util.aes_encrypt(respond, user_dict[addr].key if user_dict[addr].key is not None else common_key)
-            respond.encode('utf-8')
+            log.debug(f"服务端发送：{respond}")
+            respond = util.aes_encrypt(respond, aes_key)
+            respond = respond.encode('utf-8')
             client_socket.send(respond)
         except socket.timeout:
             pass
@@ -143,7 +151,7 @@ def main():
         new_command = input()
         if exit_event.is_set():
             break
-        if re.match(r'^(exit|eixt|exti|shutdown|shudtown|shutdwon).*', new_command, re.IGNORECASE):
+        if re.match(r'^(exit|eixt|exti|shutdown|shudtown|shutdwon)( .*|)', new_command, re.IGNORECASE):
             shutdown()  # 通知线程停止
             log.info(f"指令手动关停，请等待线程退出...")
             break

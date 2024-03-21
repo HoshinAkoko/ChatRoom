@@ -9,7 +9,7 @@ from src.util.util import get_timestamp
 
 
 def get_all_chat_user_by_name_list(name_list):
-    result = query(f"SELECT HEX(cu.id) as mid, cu.uid, cu.nickname, cu.is_admin, u.password, u.last_updated_int FROM chat_users cu LEFT JOIN users u ON u.id = cu.user_id WHERE u.name IN {get_placeholder_in_list(name_list)}", name_list)
+    result = query(f"SELECT HEX(cu.id) as mid, cu.uid, cu.nickname, cu.is_admin, u.password, cu.last_updated_int FROM chat_users cu LEFT JOIN users u ON u.id = cu.user_id WHERE u.name IN {get_placeholder_in_list(name_list)}", name_list)
     user_list = []
     for row in result:
         user_list.append(User(row[0], row[1], row[2], row[3], row[4], "")) if row is not None else None
@@ -17,7 +17,7 @@ def get_all_chat_user_by_name_list(name_list):
 
 
 def get_chat_user_by_name(name):
-    result = query(f"SELECT HEX(cu.id) as mid, cu.uid, cu.nickname, cu.is_admin, u.password, u.last_updated_int FROM chat_users cu LEFT JOIN users u ON u.id = cu.user_id WHERE u.name = %s", [name])
+    result = query(f"SELECT HEX(cu.id) as mid, cu.uid, cu.nickname, cu.is_admin, u.password, cu.last_updated_int FROM chat_users cu LEFT JOIN users u ON u.id = cu.user_id WHERE u.name = %s", [name])
     row = result[0] if len(result) > 0 else None
     return User(row[0], row[1], row[2], row[3], row[4], row[5], "") if row else None
 

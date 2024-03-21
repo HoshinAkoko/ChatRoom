@@ -7,6 +7,7 @@ from src.server import dao
 from src.util import constant
 from src.util.util import get_md5, get_new_key, get_timestamp
 from src.util.date_util import date_int_to_str
+from loguru import logger as log
 
 
 def login(params_dict, addr, user_dict):
@@ -55,6 +56,7 @@ def request_history(params_dict, addr, user_dict):
 
 # 返回单条错误信息
 def error_msg(msg):
+    log.warning(f"返回错误信息: {msg}")
     error_dict = {
         "type": -1,
         "params": {
