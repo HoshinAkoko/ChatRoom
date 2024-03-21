@@ -5,9 +5,11 @@ import socket
 import threading
 import configparser
 import re
-import service
+from src.server import service, database
+from src.server.service import error_msg
 from src.util import util, loguru_config as log_conf, constant
 from loguru import logger as log
+from pathlib import Path
 
 
 # 全局变量
@@ -23,33 +25,33 @@ sign_key = "OPSTART"                    # 验签密钥
 
 
 # 主业务
-def main_service(params_json, addr, user):
-    params_dict = util.verify_to_dict(params_json, sign_key)
-    if not params_dict:
-        log.warning(f"客户端{addr}验签失败！")
+def main_service(request_json, addr, user):
+    request_dict = util.verify_to_dict(request_json, sign_key)
+    if not request_dict:
+        log.warning(f"客户端 {addr} 验签失败！")
         return error_msg("验签失败！")
-    if params_dict["type"] != constant.CLIENT_MSG_TYPE_LOGIN_IN and user is None:
-        log.warning(f"客户端{addr}非法请求，需要先登录。")
+    if request_dict["type"] != constant.CLIENT_MSG_TYPE_LOGIN_IN and user is None:
+        log.warning(f"客户端 {addr} 非法请求，需要先登录。")
         return error_msg("非法请求！请先登录。")
-    if params_dict["type"] == constant.CLIENT_MSG_TYPE_LOGIN_IN:
+    if request_dict["type"] == constant.CLIENT_MSG_TYPE_LOGIN_IN:
         if user is not None:
-            log.warning(f"客户端{addr}已登录，接收到重复的登录请求。")
+            log.warning(f"客户端 {addr} 已登录，接收到重复的登录请求。")
             return error_msg("您已登录。如果要切换用户，请先登出。")
-        service.login(params_dict, addr, user_dict)
+        return service.login(request_dict["params"], addr, user_dict)
+    match request_dict["type"]:
+        case constant.CLIENT_MSG_TYPE_SINGLE_MSG:
+            return service.receive_msg(request_dict["params"], addr, user_dict)
+        case constant.CLIENT_MSG_TYPE_CHANGE_NICKNAME:
+            return service.change_nickname(request_dict["params"], addr, user_dict)
+        case constant.CLIENT_MSG_TYPE_CHANGE_SETTING:
+            return service.change_setting(request_dict["params"], addr, user_dict)
+        case constant.CLIENT_MSG_TYPE_REQUEST_HISTORY:
+            return service.request_history(request_dict["params"], addr, user_dict)
+        case _:
+            return error_msg("未知请求！")
 
 
 
-
-# 返回单条错误信息
-def error_msg(msg):
-    error_dict = {
-        "type": -1,
-        "params": {
-            "code": -1,
-            "msg": f"{msg}"
-        }
-    }
-    return error_dict
 
 
 # 处理每个客户端连接
@@ -65,10 +67,10 @@ def handle_client(client_socket, addr):
                 break
             receive = receive.decode('utf-8')
             receive = util.aes_decrypt(receive, user_dict[addr].key if user_dict[addr].key is not None else common_key)
-            log.info(f"接受客户端{addr}的信息：{receive}")
+            log.info(f"接受客户端 {addr} 的信息：{receive}")
             # 业务处理
             respond_dict = main_service(receive, addr, user_dict[addr])
-            respond_dict["timestamp"] = util.get_timestamp
+            respond_dict["timestamp"] = util.get_timestamp()
             respond = util.sign_to_json(respond_dict, sign_key)
             respond = util.aes_encrypt(respond, user_dict[addr].key if user_dict[addr].key is not None else common_key)
             respond.encode('utf-8')
@@ -92,6 +94,7 @@ def handle_client(client_socket, addr):
     client_socket.close()
     log.info(f"连接已关闭: {addr}")
     client_list.remove(client_socket)
+    user_dict.pop(addr)
     log.info(f"当前连接数：{len(client_list)}")
 
 
@@ -102,7 +105,7 @@ def start_server():
     server_socket.settimeout(3.0)
     server_socket.bind((host, port))
     server_socket.listen(max_client)
-    log.info(f"ChatRoom服务端启动于{host}:{port}...")
+    log.info(f"ChatRoom 服务端启动于{host}:{port}...")
     while True:
         try:
             # 等待一个新连接
@@ -115,16 +118,16 @@ def start_server():
             pass
         except Exception as e:
             log.critical(f"未知异常！服务端强制关闭...")
-            shutdown()
+            shutdown(press_enter=True)
             server_socket.close()
-            log.warning(f"Socket服务端已关闭")
+            log.warning(f"ChatRoom 服务端已关闭")
             log.error(e)
             raise e
         finally:
             if exit_event.is_set():
                 break
     server_socket.close()
-    log.warning(f"Socket服务端已关闭")
+    log.warning(f"ChatRoom 服务端已关闭")
 
 
 # 入口
@@ -138,53 +141,41 @@ def main():
     # 等待接收指令
     while True:
         new_command = input()
+        if exit_event.is_set():
+            break
         if re.match(r'^(exit|eixt|exti|shutdown|shudtown|shutdwon).*', new_command, re.IGNORECASE):
             shutdown()  # 通知线程停止
-            log.info(f"等待线程退出...")
+            log.info(f"指令手动关停，请等待线程退出...")
             break
         else:
             pass
 
 
 # 关闭服务端
-def shutdown():
+def shutdown(press_enter=False):
     exit_event.set()
+    database.disconnect()
+    if press_enter:
+        print(f"请按回车退出。")
 
 
 # 读取配置
 def config_init():
     # 加载配置文件
     config = configparser.ConfigParser()
-    config.read('server_config.ini')
-    if __name__ == "__main__":
-        config.read('../../server_config.ini')
-    global client_list, key_dict, common_key, sign_key, host, port, max_client
+    config_file = Path('server_config.ini')
+    if not config_file.exists():
+        config_file = Path('../../server_config.ini')
+    if not config_file.exists():
+        raise FileNotFoundError(f"配置文件不存在！")
+    config.read(config_file)
+    global host, port, max_client, common_key, sign_key
 
-    def get_config(section, option, default_value, is_int=False):
-        try:
-            value = config[section][option]
-            if value is None and default_value is None and is_int:
-                return 0
-            if value is None and default_value is None and not is_int:
-                return None
-            if value is None and default_value is not None:
-                value = default_value
-            if is_int:
-                return int(value)
-            return value
-        except KeyError or TypeError:
-            try:
-                if is_int:
-                    return int(default_value)
-                return default_value
-            except ValueError:
-                return 0
-
-    host            = get_config('server', 'host', default_value=host)
-    port            = get_config('server', 'port', default_value=port, is_int=True)
-    max_client      = get_config('server', 'max_client', default_value=max_client, is_int=True)
-    common_key      = get_config('server', 'common_key', default_value=common_key)
-    sign_key        = get_config('server', 'sign_key', default_value=sign_key)
+    host            = util.get_config(config, 'server', 'host', default_value=host)
+    port            = util.get_config(config, 'server', 'port', default_value=port, is_int=True)
+    max_client      = util.get_config(config, 'server', 'max_client', default_value=max_client, is_int=True)
+    common_key      = util.get_config(config, 'server', 'common_key', default_value=common_key)
+    sign_key        = util.get_config(config, 'server', 'sign_key', default_value=sign_key)
 
 
 # 测试

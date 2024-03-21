@@ -7,6 +7,8 @@ from datetime import datetime
 import base64
 import hashlib
 import json
+import os
+import binascii
 
 
 # 签名并转为json
@@ -72,17 +74,45 @@ def aes_decrypt(encrypted_data, hex_key):
     decrypted_data = unpad(cipher.decrypt(encrypted_data_only), AES.block_size).decode()
     return decrypted_data
 
+def get_config(config, section, option, default_value, is_int=False):
+    try:
+        value = config[section][option]
+        if value is None and default_value is None and is_int:
+            return 0
+        if value is None and default_value is None and not is_int:
+            return None
+        if value is None and default_value is not None:
+            value = default_value
+        if is_int:
+            return int(value)
+        return value
+    except KeyError or TypeError or ValueError:
+        try:
+            if is_int:
+                return int(default_value)
+            return default_value
+        except TypeError or ValueError:
+            return 0
+
+
+def get_new_key():
+    aes_key = os.urandom(16)
+    hex_key = binascii.hexlify(aes_key).decode('ascii')
+    return hex_key
+
 
 if __name__ == "__main__":
-    test_dict = {
-        "aaa": "123",
-        "ccc": 321,
-        "bbb": 231
-    }
-    test_json = sign_to_json(test_dict, "sign_key")
-    print(f"signed json: {test_json}")
-    verify_dict = verify_to_dict(test_json, "sign_key")
-    if not verify_dict:
-        print(f"check failed!")
-    else:
-        print(f"check sign success! dict is {verify_dict}")
+    # test_dict = {
+    #     "aaa": "123",
+    #     "ccc": 321,
+    #     "bbb": 231
+    # }
+    # test_json = sign_to_json(test_dict, "sign_key")
+    # print(f"signed json: {test_json}")
+    # verify_dict = verify_to_dict(test_json, "sign_key")
+    # if not verify_dict:
+    #     print(f"check failed!")
+    # else:
+    #     print(f"check sign success! dict is {verify_dict}")
+
+    print(str(get_new_key()))
