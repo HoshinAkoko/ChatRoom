@@ -102,7 +102,8 @@ def handle_client(client_socket, addr):
     client_socket.close()
     log.info(f"连接已关闭: {addr}")
     client_list.remove(client_socket)
-    user_dict.pop(addr)
+    if addr in user_dict:
+        user_dict.pop(addr)
     log.info(f"当前连接数：{len(client_list)}")
 
 
@@ -148,10 +149,11 @@ def main():
     server_thread.start()
     # 等待接收指令
     while True:
-        new_command = input()
+        new_command = input() #util.get_input()
         if exit_event.is_set():
             break
         if re.match(r'^(exit|eixt|exti|shutdown|shudtown|shutdwon)( .*|)', new_command, re.IGNORECASE):
+            log.info(f"终端指令: {new_command}")
             shutdown()  # 通知线程停止
             log.info(f"指令手动关停，请等待线程退出...")
             break
