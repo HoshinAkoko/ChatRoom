@@ -39,3 +39,14 @@ def get_placeholder_in_list(params_list):
     placeholders = ', '.join(['%s'] * len(params_list))
     return f"({placeholders})"
 
+
+def save_message_set(msg_set):
+    fail_set = set()
+    execute_count = 0
+    while len(msg_set) > 0:
+        msg = msg_set.pop()
+        execute_count += execute(f"INSERT INTO chat_messages (id, message, timestamp, uid) VALUES (UNHEX(REPLACE(UUID(), '-', '')), %s, %s, %s)", [msg[0], msg[1], msg[2]])
+        if not execute_count:
+            fail_set.add(msg)
+    msg_set.update(fail_set)
+    return execute_count
