@@ -1,3 +1,8 @@
+"""
+loguru 配置类
+"""
+
+
 from loguru import logger
 import sys
 
@@ -44,12 +49,6 @@ def custom_console_format(record):
 def setup_logger(log_title):
 
     file_format = "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} - {message}"
-
-    # console_format = (
-    #     "<green>{time:YYYY-MM-DD at HH:mm:ss}</green> | "
-    #     "<level>{level: <8}</level> | "
-    #     "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-    # )
 
     logger.remove()
 
