@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import binascii
+import struct
 
 
 # 签名并转为 json
@@ -79,6 +80,31 @@ def aes_decrypt(encrypted_data, hex_key):
     cipher = AES.new(key, AES.MODE_CBC, iv)
     decrypted_data = unpad(cipher.decrypt(encrypted_data_only), AES.block_size).decode()
     return decrypted_data
+
+
+# 带消息长度前缀的 socket 发送
+def socket_send(socket, message):
+    message_length = len(message)
+    length_prefix = struct.pack('>I', message_length)  # '>I'表示大端模式的无符号整型
+    socket.sendall(length_prefix + message)
+
+
+# 带消息长度前缀的 socket 接收
+def socket_recv(socket):
+    # 首先读取消息长度的前缀（4字节）
+    length_prefix = socket.recv(4)
+    if not length_prefix:
+        return None  # 连接关闭
+    message_length = struct.unpack('>I', length_prefix)[0]
+
+    # 根据消息长度读取完整的消息
+    message = b''
+    while len(message) < message_length:
+        chunk = socket.recv(message_length - len(message))
+        if not chunk:
+            raise Exception("Expected length of message not received")
+        message += chunk
+    return message
 
 
 # 读取配置项

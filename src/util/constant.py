@@ -23,9 +23,14 @@ SERVER_MSG_TYPE_NICKNAME_INFO       = 2
 SERVER_MSG_TYPE_SETTING_INFO        = 3
 SERVER_MSG_TYPE_HISTORY_INFO        = 4
 
+# 消息 CODE 标识
+CODE_ERROR                          = -1
+CODE_NORMAL                         = 0
+CODE_SUCCESS                        = 1
+
 # 服务端缓存消息数量
-MAX_SAVE_MSG_LENGTH                 = 50    # 超出这个数就会尝试进行一次数据库存储
 MAX_MSG_LIST_LENGTH                 = 100   # 服务端各种即时业务覆盖的消息长度
+MAX_SAVE_MSG_LENGTH                 = 50    # 超出这个数就会尝试进行一次数据库存储
 MAX_CACHE_ERROR_CLEAR_LENGTH        = 100   # 缓存的最大保存数量，超过这个数还没有成功存入数据库就会强制清除
 
 # LOGO
@@ -54,8 +59,6 @@ def get_logo(title, sub_title, version):
     for i in range(len(r)):
         filler += "="
     return CHATROOM_LOGO.replace(bottom, filler + detail)
-
-
 
 
 if __name__ == "__main__":

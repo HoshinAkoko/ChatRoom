@@ -7,9 +7,8 @@ import socket
 import threading
 
 import re
-from src.server import service, database
-from src.server.service import error_msg
-from src.server import config
+from src.server import service, database, message, config
+from src.server.service import response_msg
 from src.util import util, loguru_config as log_conf, constant
 from loguru import logger as log
 
@@ -25,16 +24,16 @@ def main_service(request_json, addr, user):
     request_dict = util.verify_to_dict(request_json, config.sign_key)
     if not request_dict:
         log.warning(f"客户端 {addr} 验签失败！")
-        return error_msg(addr, f"验签失败！")
+        return response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"验签失败！", constant.CODE_ERROR)
     if "params" not in request_dict or "type" not in request_dict:
-        return error_msg(addr, f"参数错误！")
+        return response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"参数错误！", constant.CODE_ERROR)
     if request_dict["type"] != constant.CLIENT_MSG_TYPE_LOGIN_IN and user is None:
         log.warning(f"客户端 {addr} 非法请求，需要先登录。")
-        return error_msg(addr, f"非法请求！请先登录。")
+        return response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"非法请求！请先登录。", constant.CODE_ERROR)
     if request_dict["type"] == constant.CLIENT_MSG_TYPE_LOGIN_IN:
         if user is not None:
             log.warning(f"客户端 {addr} 已登录，接收到重复的登录请求。")
-            return error_msg(addr, f"您已登录。如果要切换用户，请先登出。")
+            return response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"您已登录。如果要切换用户，请先登出。", constant.CODE_ERROR)
         return service.login(request_dict["params"], addr, user_dict)
     match request_dict["type"]:
         case constant.CLIENT_MSG_TYPE_SINGLE_MSG:
@@ -46,7 +45,7 @@ def main_service(request_json, addr, user):
         case constant.CLIENT_MSG_TYPE_REQUEST_HISTORY:
             return service.request_history(request_dict["params"], addr, user_dict)
         case _:
-            return error_msg(addr, f"未知请求！")
+            return response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"未知请求！", constant.CODE_ERROR)
 
 
 # 处理每个客户端连接
@@ -56,14 +55,15 @@ def handle_client(addr):
     log.info(f"当前连接数：{len(client_dict)}")
     client_last_updated_int = util.get_timestamp()
     client_socket.settimeout(3.0)
+    service.send_msg(response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"连接服务器成功，请登陆！(1分钟后超时)", constant.CODE_NORMAL), addr, client_dict, user_dict)
     while True:
         # 接收数据，若空则关闭
         try:
             # 判断是否未登录且超过 1 分钟未活动
             if addr not in user_dict and util.get_timestamp() - client_last_updated_int > 1 * 60 * 1000:
-                service.send_msg(error_msg(addr, f"登入超时！"), addr, client_dict, user_dict)
+                service.send_msg(response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"登入超时！", constant.CODE_ERROR), addr, client_dict, user_dict)
                 break
-            receive = client_socket.recv(1024)
+            receive = util.socket_recv(client_socket)
             if not receive:
                 break
             client_last_updated_int = util.get_timestamp()
@@ -75,17 +75,17 @@ def handle_client(addr):
                 if user.key is not None:
                     aes_key = user.key
             receive = util.aes_decrypt(receive, aes_key)
-            log.debug(f"接收客户端: {addr} ：{receive}")
+            log.debug(f"接收客户端<-{addr}：{receive}")
             # 业务处理
             respond_dict = main_service(receive, addr, user)
-            if respond_dict is None:
-                respond_dict = error_msg(addr, f"未知错误！")
-            respond_dict["timestamp"] = util.get_timestamp()
-            respond = util.sign_to_json(respond_dict, config.sign_key)
-            log.debug(f"服务端发送：{respond}")
-            respond = util.aes_encrypt(respond, aes_key)
-            respond = respond.encode('utf-8')
-            client_socket.send(respond)
+            if respond_dict is not None:
+                #respond_dict = response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"未知错误！", constant.CODE_ERROR)
+                respond_dict["timestamp"] = util.get_timestamp()
+                respond = util.sign_to_json(respond_dict, config.sign_key)
+                log.debug(f"服务端发送->{addr}：{respond}")
+                respond = util.aes_encrypt(respond, aes_key)
+                respond = respond.encode('utf-8')
+                util.socket_send(client_socket, respond)
         except socket.timeout:
             pass
         except ConnectionResetError:
@@ -169,6 +169,7 @@ def main():
 def shutdown(press_enter=False):
     exit_event.set()
     database.disconnect()
+    message.save_cache()
     if press_enter:
         print(f"请按回车退出。")
 

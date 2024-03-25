@@ -20,7 +20,7 @@ def save_cache():
     log.info(f"已缓存消息数: {length}，达到存储数量，开始进行存入...")
     count = dao.save_message_set(msg_cache)
     if count >= length:
-        log.info(f"消息保存成功！")
+        log.info(f"缓存消息保存成功！")
         return
     else:
         log.critical(f"警告！消息缓存失败，请手动保存：{str(msg_cache)}")
