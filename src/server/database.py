@@ -68,7 +68,7 @@ def query(sql, params):
     try:
         cursor.execute(sql, tuple(params))
         result = cursor.fetchall() # 返回 a list of tuples
-    except Error as e:
+    except Exception as e:
         log.error(f"数据库查询出错！")
         log.error(e)
         result = []
@@ -86,7 +86,50 @@ def execute(sql, params):
         cursor.execute(sql, tuple(params))
         database.commit()  # 确认执行 INSERT、UPDATE、DELETE
         affected_rows = cursor.rowcount
-    except Error as e:
+    except Exception as e:
+        database.rollback()  # 如果出现错误，回滚
+        log.error(f"数据库修改出错！")
+        log.error(e)
+        affected_rows = 0
+    finally:
+        cursor.close()
+    return affected_rows
+
+
+def execute_queue(sql_params_list):
+    global database
+    if not isinstance(database, MySQLConnection):
+        connect()
+    cursor = database.cursor()
+    fail_set = set()
+    for i in range(len(sql_params_list)):
+        sql = sql_params_list[i][0]
+        params = sql_params_list[i][1]
+        try:
+            cursor.execute(sql, tuple(params))
+            database.commit()
+        except Exception as e:
+            fail_set.add(sql_params_list[i])
+            database.rollback()  # 如果出现错误，回滚
+            log.error(f"数据库修改出错！")
+            log.error(e)
+    cursor.close()
+    return fail_set
+
+
+def execute_batch(sql_params_list):
+    global database
+    if not isinstance(database, MySQLConnection):
+        connect()
+    cursor = database.cursor()
+    try:
+        for i in range(len(sql_params_list)):
+            sql = sql_params_list[i][0]
+            params = sql_params_list[i][1]
+            cursor.execute(sql, tuple(params))
+        database.commit()  # 确认执行 INSERT、UPDATE、DELETE
+        affected_rows = cursor.rowcount
+    except Exception as e:
         database.rollback()  # 如果出现错误，回滚
         log.error(f"数据库修改出错！")
         log.error(e)

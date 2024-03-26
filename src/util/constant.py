@@ -33,6 +33,9 @@ MAX_MSG_LIST_LENGTH                 = 100   # 服务端各种即时业务覆盖�
 MAX_SAVE_MSG_LENGTH                 = 50    # 超出这个数就会尝试进行一次数据库存储
 MAX_CACHE_ERROR_CLEAR_LENGTH        = 100   # 缓存的最大保存数量，超过这个数还没有成功存入数据库就会强制清除
 
+# 服务端广播参数
+SERVER_BROADCAST_RECENT_LENGTH      = 3     # 服务端每次广播最近消息记录时的最大消息数
+
 # LOGO
 SERVER_TITLE = "Server"
 SERVER_SUBTITLE = "Indev"

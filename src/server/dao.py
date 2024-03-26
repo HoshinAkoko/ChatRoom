@@ -3,7 +3,7 @@
 """
 
 
-from src.server.database import query, execute
+from src.server.database import query, execute, execute_queue
 from src.server.user import User
 from src.util.util import get_timestamp
 
@@ -40,13 +40,29 @@ def get_placeholder_in_list(params_list):
     return f"({placeholders})"
 
 
-def save_message_set(msg_set):
-    fail_set = set()
-    execute_count = 0
+# 保存所有缓存内消息，返回保存失败的消息
+def save_message_set_all(msg_set):
+    sql_params_list = list()
     while len(msg_set) > 0:
         msg = msg_set.pop()
-        execute_count += execute(f"INSERT INTO chat_messages (id, message, timestamp, uid) VALUES (UNHEX(REPLACE(UUID(), '-', '')), %s, %s, %s)", [msg[0], msg[1], msg[2]])
-        if not execute_count:
-            fail_set.add(msg)
-    msg_set.update(fail_set)
+        sql_params_list.append((f"INSERT INTO chat_messages (id, timestamp, message, uid) VALUES (UNHEX(REPLACE(UUID(), '-', '')), %s, %s, %s)", [msg[0], msg[1], msg[2]]))
+    fail_set = execute_queue(sql_params_list)
+    for sql_params in fail_set:
+        msg = tuple(sql_params[1])
+        msg_set.add(msg)
+    return fail_set
+
+
+# 保存随机一条缓存内消息
+def save_message_set_one(msg):
+    fail_set = set()
+    execute_count = 0
+    # if len(msg_set) > 0:
+    #     msg = msg_set.pop()
+    execute_count += execute(f"INSERT INTO chat_messages (id, timestamp, message, uid) VALUES (UNHEX(REPLACE(UUID(), '-', '')), %s, %s, %s)", [msg[0], msg[1], msg[2]])
+    if not execute_count:
+        return 0
     return execute_count
+            # fail_set.add(msg)
+    # msg_set.update(fail_set)
+    # return execute_count
