@@ -40,7 +40,7 @@ def add_msg(time, msg, uid, nick):
 
 
 # 立即持久化全部缓存消息
-def save_cache_all(thread_event):
+def save_cache_all(thread_event=None):
     global msg_cache
     length = len(msg_cache)
     if length <= 0:
@@ -52,7 +52,8 @@ def save_cache_all(thread_event):
         return
     else:
         log.critical(f"警告！消息缓存失败，请手动保存：{str(fail_set)}")
-    thread_event.clear()
+    if thread_event is not None:
+        thread_event.clear()
 
 
 # 持久化单条缓存消息，周期调用
