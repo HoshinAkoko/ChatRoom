@@ -14,7 +14,8 @@ import struct
 
 
 # 签名并转为 json
-def sign_to_json(unsorted_dict, sign_key):
+def sign_to_json(unsorted_dict_raw, sign_key):
+    unsorted_dict = dict(unsorted_dict_raw)
     unsorted_dict["key"] = f"{sign_key}"
     sorted_dict = {key: unsorted_dict[key] for key in sorted(unsorted_dict)}
     key_json = json.dumps(sorted_dict)

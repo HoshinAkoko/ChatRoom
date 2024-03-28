@@ -15,16 +15,16 @@ def main_service(request_json, addr, user, user_dict, client_dict):
     request_dict = util.verify_to_dict(request_json, config.sign_key)
     if not request_dict:
         log.warning(f"客户端 {addr} 验签失败！")
-        return cons_response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"验签失败！", constant.CODE_ERROR)
+        return cons_resp_msg(f"验签失败！", addr, constant.SERVER_MSG_TYPE_ERROR_MSG, constant.CODE_ERROR)
     if "params" not in request_dict or "type" not in request_dict:
-        return cons_response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"参数错误！", constant.CODE_ERROR)
+        return cons_resp_msg(f"参数错误！", addr, constant.SERVER_MSG_TYPE_ERROR_MSG, constant.CODE_ERROR)
     if request_dict["type"] != constant.CLIENT_MSG_TYPE_LOGIN_IN and user is None:
         log.warning(f"客户端 {addr} 非法请求，需要先登录。")
-        return cons_response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"非法请求！请先登录。", constant.CODE_ERROR)
+        return cons_resp_msg(f"非法请求！请先登录。", addr, constant.SERVER_MSG_TYPE_LOGIN_INFO, constant.CODE_ERROR)
     if request_dict["type"] == constant.CLIENT_MSG_TYPE_LOGIN_IN:
         if user is not None:
             log.warning(f"客户端 {addr} 已登录，接收到重复的登录请求。")
-            return cons_response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"您已登录。如果要切换用户，请先登出。", constant.CODE_ERROR)
+            return cons_resp_msg(f"您已登录。如果要切换用户，请先登出。", addr, constant.SERVER_MSG_TYPE_LOGIN_INFO, constant.CODE_ERROR)
         return login(request_dict["params"], addr, user_dict)
     match request_dict["type"]:
         case constant.CLIENT_MSG_TYPE_SINGLE_MSG:
@@ -36,20 +36,20 @@ def main_service(request_json, addr, user, user_dict, client_dict):
         case constant.CLIENT_MSG_TYPE_REQUEST_HISTORY:
             return request_history(request_dict["params"], addr, user_dict)
         case _:
-            return cons_response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"未知请求！", constant.CODE_ERROR)
+            return cons_resp_msg(f"未知请求！", addr, constant.SERVER_MSG_TYPE_ERROR_MSG, constant.CODE_ERROR)
 
 
 # 登陆业务
 def login(params_dict, addr, user_dict):
     if "username" not in params_dict or "password" not in params_dict:
-        return cons_response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"用户名或密码不能为空！", constant.CODE_ERROR)
+        return cons_resp_msg(f"用户名或密码不能为空！", addr, constant.SERVER_MSG_TYPE_LOGIN_INFO, constant.CODE_ERROR)
     username = params_dict['username']
     password = params_dict['password']
     user = dao.get_chat_user_by_name(username)
     if user is None:
-        return cons_response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"用户名或密码不正确！", constant.CODE_ERROR)
+        return cons_resp_msg(f"用户名或密码不正确！", addr, constant.SERVER_MSG_TYPE_LOGIN_INFO, constant.CODE_ERROR)
     if get_md5(password) != user.password:
-        return cons_response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"用户名或密码不正确！", constant.CODE_ERROR)
+        return cons_resp_msg(f"用户名或密码不正确！", addr, constant.SERVER_MSG_TYPE_LOGIN_INFO, constant.CODE_ERROR)
     # 登陆成功，检查是否已在别的位置登录，存在则强制顶下线(不影响TCP连接)
     for k, v in user_dict.items():
         if v.mid == user.mid:
@@ -62,12 +62,8 @@ def login(params_dict, addr, user_dict):
         "nickname": user.nickname,
         "uid": user.uid
     }
-    response_dict = cons_response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO,
-                                      addr,
-                                 f"登陆成功！上次登陆时间{date_int_to_str(user.last_updated_int)}",
-                                      constant.CODE_NORMAL,
-                                      params=response_params_dict
-                                      )
+    response_dict = cons_resp_msg(f"登陆成功！上次登陆时间{date_int_to_str(user.last_updated_int)}",
+                                  addr, constant.SERVER_MSG_TYPE_LOGIN_INFO, constant.CODE_NORMAL, params=response_params_dict)
     # 更新最后登陆时间
     last_update(user)
     return response_dict
@@ -76,12 +72,12 @@ def login(params_dict, addr, user_dict):
 # 消息业务，接收消息并广播
 def receive_msg(params_dict, addr, user_dict, client_dict):
     if "msg" not in params_dict or "time" not in params_dict:
-        return cons_response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"消息格式错误！", constant.CODE_ERROR)
+        return cons_resp_msg(f"消息格式错误！", addr, constant.SERVER_MSG_TYPE_ERROR_MSG, constant.CODE_ERROR)
     if addr not in user_dict:
-        return cons_response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"登陆状态异常，请重新登陆！", constant.CODE_ERROR)
+        return cons_resp_msg(f"登陆状态异常，请重新登陆！", addr, constant.SERVER_MSG_TYPE_ERROR_MSG, constant.CODE_ERROR)
     user = user_dict[addr]
     if user.uid is None:
-        return cons_response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"登陆状态异常，请重新登陆！", constant.CODE_ERROR)
+        return cons_resp_msg(f"登陆状态异常，请重新登陆！", addr, constant.SERVER_MSG_TYPE_ERROR_MSG, constant.CODE_ERROR)
     msg = params_dict['msg']
     time = params_dict['time']
     uid = user.uid
@@ -107,15 +103,8 @@ def broadcast_recent(client_dict, user_dict):
     send_params_dict = {
         "recent": recent
     }
-    send_dict = cons_broadcast_msg(constant.SERVER_MSG_TYPE_CHAT_BROADCAST,
-                                 "全体",
-                                 f"",
-                                   constant.CODE_NORMAL,
-                                   params=send_params_dict
-                                   )
+    send_dict = cons_brod_msg(f"", "全体", constant.SERVER_MSG_TYPE_CHAT_BROADCAST, constant.CODE_NORMAL, params=send_params_dict)
     broadcast(send_dict, client_dict, user_dict)
-
-
 
 
 def change_nickname(params_dict, addr, user_dict):
@@ -137,7 +126,7 @@ def broadcast(send_dict, client_dict, user_dict):
 
 
 # 拼装单条信息，返回 dict 类型
-def cons_response_msg(msg_type, addr, msg, code, params=None):
+def cons_resp_msg(msg, addr, msg_type, code, params=None):
     if params is None:
         params = {}
     if msg_type == constant.SERVER_MSG_TYPE_ERROR_MSG or code == constant.CODE_ERROR:
@@ -154,7 +143,7 @@ def cons_response_msg(msg_type, addr, msg, code, params=None):
 
 
 # 拼装广播信息，返回 dict 类型
-def cons_broadcast_msg(msg_type, target, msg, code, params=None):
+def cons_brod_msg(msg, target, msg_type, code, params=None):
     if params is None:
         params = {}
     if msg_type == constant.SERVER_MSG_TYPE_ERROR_MSG or code == constant.CODE_ERROR:

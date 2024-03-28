@@ -8,7 +8,7 @@ import threading
 from loguru import logger as log
 from src.server import service, config
 from src.util import util, constant
-from src.server.service import cons_response_msg
+from src.server.service import cons_resp_msg
 
 
 # 处理每个客户端连接
@@ -18,32 +18,37 @@ def handle_client(addr, stop_event, user_dict, client_dict):
     log.info(f"当前连接数：{len(client_dict)}")
     client_last_updated_int = util.get_timestamp()
     client_socket.settimeout(3.0)
-    service.send_msg(cons_response_msg(constant.SERVER_MSG_TYPE_LOGIN_INFO, addr, f"连接服务器成功，请登陆！(1分钟后超时)", constant.CODE_NORMAL), addr, client_dict, user_dict)
+    service.send_msg(cons_resp_msg(f"连接服务器成功，请登陆！(1分钟后超时)", addr, constant.SERVER_MSG_TYPE_LOGIN_INFO, constant.CODE_NORMAL), addr, client_dict, user_dict)
     msg_queue = list()
     deal_event = threading.Event()
     while True:
         # 判断是否未登录且超过 1 分钟未活动
         if addr not in user_dict and util.get_timestamp() - client_last_updated_int > 1 * 60 * 1000:
-            service.send_msg(cons_response_msg(constant.SERVER_MSG_TYPE_ERROR_MSG, addr, f"登入超时！", constant.CODE_ERROR), addr, client_dict, user_dict)
+            service.send_msg(cons_resp_msg(f"登入超时！", addr, constant.SERVER_MSG_TYPE_ERROR_MSG, constant.CODE_ERROR), addr, client_dict, user_dict)
+            log.warning(f"用户 {addr} 登入超时，连接强制关闭...")
             break
 
         try:
             receive = util.socket_recv(client_socket)
             if not receive:
+                log.warning(f"用户 {addr} 主动断开连接，正在关闭...")
                 break
+            if len(msg_queue) > config.receive_cache_max_length:
+                service.send_msg(cons_resp_msg(f"拒绝请求，已超出最大请求缓存数！", addr, constant.SERVER_MSG_TYPE_ERROR_MSG, constant.CODE_ERROR), addr, client_dict, user_dict)
             msg_queue.insert(0, receive)
             client_last_updated_int = util.get_timestamp()
         except socket.timeout:
             pass
         except ConnectionResetError:
-            log.warning(f"用户中断连接！连接 {addr} 强制关闭...")
+            log.warning(f"用户 {addr} 强制中断连接！连接正在关闭...")
             break
         except Exception as e:
-            log.error(f"未知异常！连接 {addr} 强制关闭...")
+            log.error(f"未知异常！用户 {addr} 连接强制关闭...")
             log.error(e)
             break
         finally:
             if stop_event.is_set():
+                log.warning(f"服务端关机中，用户 {addr} 连接强制关闭...")
                 break
             if len(msg_queue) > 0 and not deal_event.is_set():
                 deal_event.set()

@@ -17,7 +17,7 @@ def custom_console_format(record):
     function = record["function"]
     name_function = f"{short_name}.{function}"
     name_function_length = len(name_function) + (4 - len(name_function) % 4) % 4
-    name_function_length = 20 if name_function_length < 20 else name_function_length
+    name_function_length = 24 if name_function_length < 24 else name_function_length
 
     # 获取线程名
     thread_name = record["thread"].name
